@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manege</title>
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  background: black;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#frame {
+  width: 1920px;
+  height: 1080px;
+  position: relative;
+  transform-origin: top left;
+  overflow: hidden;
+}
+
+#fond {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+#scene {
+  width: 1920px;
+  height: 1080px;
+  position: relative; /* déjà OK */
+}
+
+
+
+#socleimg {
+  position: absolute;
+  left: 50%;   /* centre horizontal du container */
+  top: 50%;    /* centre vertical du container */
+  transform: translate(-50%, -50%); /* décale pour que le point central de l'image soit à 50%/50% */
+  width: 1720px; /* taille du socle */
+  height: auto;
+  z-index: 2;
+}
+
+  #roue {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 800px;
+    height: auto;
+    transform: translate(-50%, -50%) rotate(0deg);
+    will-change: transform;
+    z-index: 3;
+  }
+
+  #roueimg { width: 100%; height: 100%; object-fit: contain;}
+
+    .nacelle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+  }
+
+  .nacelle-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .img-cab {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    z-index: 1;
+  }
+
+  .img-cab.interne {
+    width: 15%;
+    top: 60%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 0;
+  }
+
+  .nacelle-text {
+    position: absolute;
+    top: 68%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2.8vw;
+    color: white;
+    white-space: nowrap;
+    z-index: 1;  
+  }
+
+  #manege-container {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -52%);
+  }
+
+</style>
+<style>
+	#loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: black;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2rem;
+  z-index: 9999;
+}
+
+#loading-text {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+</style>
+</head>
+<body>
+<div id="frame">
+	<div id="loading-screen">
+	  <div id="loading-text">Chargement...</div>
+	</div>
+  <div id="scene">
+    <img id="fond" src="fond1.png" alt="fond">
+    <div id="manege-container">
+      <img id="socleimg" src="socle.png" alt="socle">
+      <div id="roue">
+        <img id="roueimg" src="roue.png" alt="roue">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- Données nacelles ---
+const nacellesData = [
+  { text: "1", img1: "cabine.png", img2: "img2.png" },
+  { text: "2", img1: "cabine.png", img2: "img3.png" },
+  { text: "3", img1: "cabine.png", img2: "img2.png" },
+  { text: "4", img1: "cabine.png", img2: "img2.png" },
+  { text: "5", img1: "cabine.png", img2: "img3.png" },
+  { text: "6", img1: "cabine.png", img2: "img3.png" }
+];
+
+const allImages = [
+  'fond1.png',
+  'socle.png',
+  'roue.png',
+  ...nacellesData.flatMap(n => [n.img1, n.img2])
+];
+
+// --- Préchargement des images ---
+function preloadImages(imgs) {
+  return Promise.all(imgs.map(src => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.src = src;
+    img.onload = resolve;
+    img.onerror = () => {
+      console.warn("Image non chargée :", src);
+      resolve(); // on continue malgré l'erreur
+    };
+  })));
+}
+
+// --- Création des éléments DOM ---
+const roue = document.getElementById('roue');
+const socle = document.getElementById('socleimg');
+
+const nacelles = [];
+const nacellesAngles = [];
+const total = nacellesData.length;
+
+function createNacelles() {
+  const fragment = document.createDocumentFragment();
+  nacellesData.forEach((n, i) => {
+    const nacelle = document.createElement('div');
+    nacelle.className = 'nacelle';
+
+    const content = document.createElement('div');
+    content.className = 'nacelle-content';
+
+    const img1 = document.createElement('img');
+    img1.src = n.img1;
+    img1.className = 'img-cab';
+
+    const img2 = document.createElement('img');
+    img2.src = n.img2;
+    img2.className = 'img-cab interne';
+
+    const text = document.createElement('div');
+    text.className = 'nacelle-text';
+    text.textContent = n.text;
+
+    content.append(img1, img2, text);
+    nacelle.appendChild(content);
+    fragment.appendChild(nacelle);
+    nacelles.push(nacelle);
+
+    nacellesAngles.push((360 / total * i) * Math.PI / 180);
+  });
+  roue.appendChild(fragment);
+}
+
+// --- Resize de la frame et du manège ---
+let bases = [];
+let angle = 45;
+let vitesse = 30;
+
+function resizeFrame() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const scale = Math.min(w / 1920, h / 1080);
+  const frame = document.getElementById('frame');
+  frame.style.transform = `scale(${scale})`;
+  frame.style.position = 'absolute';
+  frame.style.left = `${(w - 1920 * scale)/2}px`;
+  frame.style.top = `${(h - 1080 * scale)/2}px`;
+}
+
+function resizeManège() {
+  const frameWidth = document.getElementById('frame').clientWidth;
+  const roueSize = frameWidth * 0.4;
+  const socleSize = frameWidth * 1;
+  const nacelleSize = frameWidth * 0.4;
+  const rayon = roueSize / 2;
+
+  roue.style.width = roueSize + 'px';
+  roue.style.height = roueSize + 'px';
+  socle.style.width = socleSize + 'px';
+  socle.style.height = socleSize + 'px';
+
+  nacelles.forEach(n => {
+    n.style.width = nacelleSize + 'px';
+    n.style.height = nacelleSize + 'px';
+  });
+
+  bases = nacellesAngles.map(a => ({ x: Math.cos(a) * rayon, y: Math.sin(a) * rayon }));
+  updateNacelles();
+}
+
+// --- Animation des nacelles ---
+function updateNacelles() {
+  nacelles.forEach((nacelle, i) => {
+    const { x, y } = bases[i];
+    nacelle.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${-angle}deg)`;
+  });
+}
+
+function updateRotation(deltaTime) {
+  angle = (angle + (vitesse * deltaTime)/1000) % 360;
+  roue.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+  updateNacelles();
+}
+
+let lastTime = performance.now();
+function animate(now) {
+  const dt = now - lastTime;
+  lastTime = now;
+  updateRotation(dt);
+  requestAnimationFrame(animate);
+}
+
+// --- Gestion resize ---
+let resizeTimeout;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    resizeFrame();
+    resizeManège();
+  }, 100);
+});
+
+preloadImages(allImages).then(() => {
+  createNacelles();
+  resizeFrame();
+  resizeManège();
+  requestAnimationFrame(animate);
+
+  // Masquer le loader
+  const loader = document.getElementById('loading-screen');
+  loader.style.display = 'none';
+});
+
+</script>
+<script>
+  // 👇 fonction de zoom/translation adaptée à ton manège
+function setSceneTransform(scale, tx, ty) {
+  const scene = document.getElementById("scene");
+  scene.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+}
+  window.setSceneTransform = setSceneTransform;
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("mode") === "zoom") {
+    window.addEventListener("DOMContentLoaded", () => {
+      // valeurs d'exemple, à ajuster selon ton manège
+      setSceneTransform(4.2, 1550, -1400);
+    });
+  }
+</script>
+<script>
+	// --- Animations progressives de la roue ---
+
+/**
+ * Arrête la roue sur un angle précis de manière lisse (ease in/out)
+ * @param {number} angleCible - angle final en degrés
+ * @param {number} duree - durée de l'animation en ms
+ */
+function arreterSurAngleLisse(angleCible, duree = 1000) {
+  const depart = angle;
+  const delta = angleCible - depart;
+  const start = performance.now();
+
+  function step(now) {
+    const t = Math.min((now - start) / duree, 1);
+    const eased = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t;
+    angle = depart + delta * eased;
+    roue.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+    updateNacelles();
+    if (t < 1) requestAnimationFrame(step);
+    else {
+      angle = angleCible;
+      vitesse = 0;
+    }
+  }
+
+  requestAnimationFrame(step);
+}
+
+/**
+ * Tourne la roue de manière progressive sur un angle relatif
+ * @param {number} angleRelatif - angle relatif à ajouter
+ * @param {number} duree - durée de l'animation en ms
+ */
+function tournerProgressif(angleRelatif, duree = 1000) {
+  const depart = angle;
+  let start = null;
+
+  function step(ts) {
+    if (!start) start = ts;
+    const t = Math.min((ts - start) / duree, 1);
+    const eased = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t;
+    angle = depart + angleRelatif * eased;
+    roue.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+    updateNacelles();
+    if (t < 1) requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+}
+
+/**
+ * Réduit progressivement la vitesse jusqu'à 0
+ * @param {number} duree - durée de l'arrêt progressif en ms
+ */
+function arreterProgressif(duree = 1000) {
+  const v0 = vitesse;
+  const start = performance.now();
+
+  function step(now) {
+    const t = Math.min((now - start) / duree, 1);
+    const eased = 1 - (1 - t) * (1 - t); // ease out quad
+    vitesse = v0 * (1 - eased);
+    if (t < 1) requestAnimationFrame(step);
+    else vitesse = 0;
+  }
+
+  requestAnimationFrame(step);
+}
+
+/**
+ * Modifie la vitesse instantanément
+ * @param {number} newVitesse
+ */
+function setVitesse(newVitesse) {
+  vitesse = newVitesse;
+  console.log("Nouvelle vitesse :", vitesse);
+}
+
+// --- Gestion des messages externes ---
+window.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || typeof data !== "object") return;
+
+  switch (data.action) {
+    case "setVitesse":
+      setVitesse(data.value);
+      break;
+    case "arreterProgressif":
+      arreterProgressif(data.duree || 1000);
+      break;
+    case "tournerProgressif":
+      tournerProgressif(data.angle, data.duree || 1000);
+      break;
+    case "arreterSurAngleLisse":
+      arreterSurAngleLisse(data.angle, data.duree || 1000);
+      break;
+    case "setAngle":
+      angle = data.angle;
+      roue.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+      updateNacelles();
+      break;
+    case "updateImg2":
+      if (!Array.isArray(data.img2Array) || data.img2Array.length !== nacelles.length) {
+        console.warn("updateImg2 : le tableau doit avoir la même longueur que les nacelles !");
+        return;
+      }
+      nacelles.forEach((nacelle, i) => {
+        const img2Elem = nacelle.querySelector('.img-cab.interne');
+        if (img2Elem) {
+          img2Elem.src = data.img2Array[i];
+          nacellesData[i].img2 = data.img2Array[i]; // mettre à jour la data également
+        }
+      });
+      console.log("img2 des nacelles mises à jour :", data.img2Array);
+      break;
+    default:
+      console.warn("Action inconnue reçue :", data.action);
+  }
+});
+</script>
+</body>
+</html>

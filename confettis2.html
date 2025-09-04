@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frame Responsive avec Confettis</title>
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#frame {
+  width: 1920px;
+  height: 1080px;
+  position: relative;
+  transform-origin: top left;
+  overflow: hidden;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+</style>
+</head>
+<body>
+
+<div id="frame">
+  <canvas id="confettiCanvas"></canvas>
+</div>
+
+<script>
+const frame = document.getElementById('frame');
+const canvas = document.getElementById('confettiCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- Resize frame and canvas ---
+function resizeFrame() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const scale = Math.min(w / 1920, h / 1080);
+  frame.style.transform = `scale(${scale})`;
+  frame.style.position = 'absolute';
+  frame.style.left = `${(w - 1920 * scale)/2}px`;
+  frame.style.top = `${(h - 1080 * scale)/2}px`;
+
+  canvas.width = 1920;
+  canvas.height = 1080;
+}
+window.addEventListener('resize', resizeFrame);
+window.addEventListener('DOMContentLoaded', resizeFrame);
+
+
+// --- Confetti system (comme avant) ---
+const TAU = Math.PI*2;
+const COLORS = ["#ef4444","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#22d3ee"];
+const particles = new Set();
+let rafId = null;
+
+class Confetti {
+  constructor(x, y) {
+    const angle = Math.random() * TAU;
+    const speed = 6 + Math.random() * 6;
+    const spread = TAU / 4;
+    const a = angle + (Math.random() - 0.5) * spread;
+
+    this.x = x;
+    this.y = y;
+    this.vx = Math.cos(a) * speed;
+    this.vy = Math.sin(a) * speed - 6 * Math.random();
+    this.w = 6 + Math.random() * 6;
+    this.h = 10 + Math.random() * 10;
+    this.color = COLORS[(Math.random() * COLORS.length) | 0];
+    this.rotation = Math.random() * TAU;
+    this.rotationSpeed = (Math.random() - 0.5) * 0.3;
+    this.opacity = 1;
+    this.drag = 0.998;
+    this.gravity = 0.15;
+    this.life = 80 + Math.random() * 40;
+    this.spinFlip = Math.random() < 0.5 ? 1 : -1;
+  }
+
+  step() {
+    this.vx *= this.drag;
+    this.vy = this.vy * this.drag + this.gravity;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.rotation += this.rotationSpeed;
+    this.spinFlip *= 0.98;
+    this.life -= 1;
+    if (this.life < 20) this.opacity = Math.max(0, this.life / 20);
+    return (
+      this.opacity > 0 &&
+      this.y < canvas.height + 50 &&
+      this.x > -50 &&
+      this.x < canvas.width + 50
+    );
+  }
+
+  draw(ctx) {
+    ctx.save();
+    ctx.globalAlpha = this.opacity;
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+    ctx.fillStyle = this.color;
+    ctx.fillRect(-this.w/2, (-this.h/2)*this.spinFlip, this.w, this.h);
+    ctx.restore();
+  }
+}
+
+
+function spawnConfetti(x, y, count = 120) {
+  for (let i=0;i<count;i++) particles.add(new Confetti(x,y));
+  if (!rafId) rafId = requestAnimationFrame(loop);
+}
+
+function loop() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for (const p of particles) {
+    if (!p.step()) particles.delete(p);
+    else p.draw(ctx);
+  }
+  if (particles.size) rafId = requestAnimationFrame(loop);
+  else rafId = null;
+}
+
+// --- Space key listener (optionnel) ---
+window.addEventListener("keydown", e => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    spawnConfetti(canvas.width/2, canvas.height/2, 150);
+  }
+});
+
+// --- Receiver postMessage ---
+window.addEventListener("message", e => {
+  // Tu peux filtrer par e.origin si besoin pour plus de sécurité
+  const data = e.data;
+  if (data && data.type === "spawnConfetti") {
+    const x = data.x ?? canvas.width/2;
+    const y = data.y ?? canvas.height/2;
+    const count = data.count ?? 120;
+    spawnConfetti(x, y, count);
+  }
+});
+</script>
+</body>
+</html>
